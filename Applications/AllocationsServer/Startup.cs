@@ -11,6 +11,8 @@ using Steeltoe.CloudFoundry.Connector.MySql.EFCore;
 using Steeltoe.Management.CloudFoundry;
 using Steeltoe.Discovery.Client;
 using Steeltoe.Common.Discovery;
+using Microsoft.Extensions.Logging;
+using Steeltoe.CircuitBreaker.Hystrix;
 
 namespace AllocationsServer
 {
@@ -30,6 +32,7 @@ namespace AllocationsServer
 
             services.AddControllers();
             services.AddDiscoveryClient(Configuration);
+           
             services.AddScoped<IAllocationDataGateway, AllocationDataGateway>();
             services.AddDbContext<AllocationContext>(options => options.UseMySql(Configuration));
             
@@ -41,8 +44,12 @@ namespace AllocationsServer
                     BaseAddress = new Uri(Configuration.GetValue<string>("REGISTRATION_SERVER_ENDPOINT"))
                 };
 
-                return new ProjectClient(httpClient);
+                var logger = sp.GetService<ILogger<ProjectClient>>();
+                 return new ProjectClient(httpClient, logger);
             });
+
+             services.AddHystrixMetricsStream(Configuration);
+            
             
         }
 
@@ -53,6 +60,8 @@ namespace AllocationsServer
             {
                 app.UseDeveloperExceptionPage();
                 app.UseDiscoveryClient();
+                app.UseHystrixMetricsStream();
+                app.UseHystrixRequestContext();
             }
 
             app.UseCloudFoundryActuators();
